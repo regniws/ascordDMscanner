@@ -10,9 +10,9 @@ pip install pyperclip
 использование при условии сохранения авторства. 
 
 Примеры использования: 
-    ascortDmScanner // открыть программу с параметрами по умолчанию и показывать на экране режим сканирования 
-    ascortDmScanner --camID=1 --clipboard=True // Использовать камеру с номером 1 и скопировать в буфер обмена, как только будет найден УИН 
-    ascortDmScanner --readFromFile='qr.jpg' --resultFile='result.txt'  // прочитать файл и сохранить УИН в файл result.txt''' 
+    ascortDmScanner // открыть программу с параметрами по умолчанию и показывать на экране режим сканирования  
+    ascortDmScanner --camID=1 --clipboard=True // Использовать камеру с номером 1 и скопировать в буфер обмена, как только будет найден УИН  
+    ascortDmScanner --readFromFile='qr.jpg' --resultFile='result.txt'  // прочитать файл и сохранить УИН в файл result.txt'''  
 
 Myagkov Anton @ wow1c
 a@wow1c.com, 2023
