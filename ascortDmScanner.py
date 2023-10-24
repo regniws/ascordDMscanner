@@ -17,6 +17,11 @@ import argparse
 import cv2
 import pyperclip
 import sys
+import dottedDataMatrix as ddm
+import numpy as np
+
+import matplotlib.pyplot as plt
+import PIL
 
 
 #constans
@@ -87,17 +92,22 @@ def render(plain, image, points, UIN):
 
 def proccessDMCode(image):
 
-    data = decode(image, accuracy, shape=2)
+    alg = ddm.DottedDataMatrix()
+    data = alg.detect_datamatrix(image, True)
+    if data is not None:
+        points = [(0,0), (0,0)]
+        return (True, points, data[1])
+    # data = decode(image, accuracy, shape=2)
 
-    for decodedObject in data:
+    # for decodedObject in data:
+    #
+    #     points = [
+    #         (decodedObject.rect.left,  image.shape[0] - decodedObject.rect.top),
+    #         (decodedObject.rect.left + decodedObject.rect.width,  image.shape[0] - decodedObject.rect.top - decodedObject.rect.height)
+    #     ]
+    #     print(decodedObject.data.decode("utf-8"))
+    #     return (True,  points, decodedObject.data.decode("utf-8"))
 
-        points = [
-            (decodedObject.rect.left,  image.shape[0] - decodedObject.rect.top), 
-            (decodedObject.rect.left + decodedObject.rect.width,  image.shape[0] - decodedObject.rect.top - decodedObject.rect.height)
-        ]
-        print(decodedObject.data.decode("utf-8"))
-        return (True,  points, decodedObject.data.decode("utf-8"))
-    
     return (False, None, None)
        
 #main
@@ -158,6 +168,7 @@ readFromFile = args.readFromFile
 cap = cv2.VideoCapture(camID)
 
 #event loop
+it1 = 0
 
 while True:
     if readFromFile != '':
@@ -184,6 +195,7 @@ while True:
         elif copyToClipboard:
             pyperclip.copy(UIN)
             break
+    # break
 
     k = cv2.waitKey(33)
     if k == -1:
