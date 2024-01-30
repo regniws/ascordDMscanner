@@ -93,7 +93,7 @@ def render(plain, image, points, UIN):
 def proccessDMCode(image):
 
     alg = ddm.DottedDataMatrix()
-    data = alg.detect_datamatrix(image, True)
+    data = alg.detect_datamatrix(image, True, True)
     if data is not None:
         points = [(0,0), (0,0)]
         return (True, points, data[1])

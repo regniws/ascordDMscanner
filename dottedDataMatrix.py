@@ -36,6 +36,68 @@ class DottedDataMatrix:
     def radius(self):
         return self._radius
 
+
+    def do_threshold(self, gray, blocksize, c):
+        raw = gray
+        thresh = cv2.adaptiveThreshold(raw, 255.0, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, blocksize, c)
+        return thresh
+
+    def do_close_morph(self, thresholded, morph_size):
+        """ Perform a generic morphological operation on an image. """
+        element = cv2.getStructuringElement(cv2.MORPH_RECT, (morph_size, morph_size))
+        closed = cv2.morphologyEx(thresholded, cv2.MORPH_CLOSE, element, iterations=1)
+        return closed
+
+    def get_contours(self, binary_image):
+        """ Find contours and return them as lists of vertices. """
+        raw_img = binary_image.img.copy()
+
+        # List of return values changed between version 2 and 3
+        _, raw_contours, _ = cv2.findContours(raw_img, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        # raw_contours, _ = cv2.findContours(raw_img, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        return raw_contours
+
+    def contours_to_polygons(self, contours, epsilon=6.0):
+        """ Uses the Douglas-Peucker algorithm to approximate a polygon as a similar polygon with
+        fewer vertices, i.e., it smooths the edges of the shape out. Epsilon is the maximum distance
+        from the contour to the approximated contour; it controls how much smoothing is applied.
+        A lower epsilon will mean less smoothing. """
+        shapes = [cv2.approxPolyDP(rc, epsilon, True).reshape(-1, 2) for rc in contours]
+        return shapes
+
+    def polygons_to_edges(self, vertex_list):
+        """Return a list of edges based on the given list of vertices. """
+        return list(self.pairs_circular(vertex_list))
+
+    def pairs_circular(self, iterable):
+        """ Generate pairs from an iterable. Best illustrated by example:
+                # >>> list(pairs_circular('abcd'))
+        [('a', 'b'), ('b', 'c'), ('c', 'd'), ('d', 'a')]
+        """
+        iterator = iter(iterable)
+        x = next(iterator)
+        zeroth = x  # Keep the first element so we can wrap around at the end.
+        while True:
+            try:
+                y = next(iterator)
+                yield ((x, y))
+            except StopIteration:  # Iterator is exhausted so wrap around to start.
+                try:
+                    yield ((y, zeroth))
+                except UnboundLocalError:  # Iterable has one element. No pairs.
+                    pass
+                break
+            x = y
+    def locate_datamatrix(self, gray, blocksize, C, close_size):
+        thresholded = self.do_threshold(gray, blocksize, C)
+
+        morphed = self.close_morph(thresholded, close_size)
+        contours = self.get_contours(morphed)
+        polygons = self.contours2polygons(contours)
+
+        edge_sets = map(self.polygon_to_edges, polygons)
+
+
     def get_roi(self, input):
         image = input
         gray = self.gray_processing(image)
@@ -52,6 +114,7 @@ class DottedDataMatrix:
         # Loop through filtered contours and perform perspective transformation and decoding
         ind = 0
         data_matrix_coords = None
+        warped = None
         for contour in filtered_contours:
             ind = ind + 1
             # Perform perspective transformation
@@ -86,20 +149,27 @@ class DottedDataMatrix:
     def detect_datamatrix(self, input, show_detection=False, show_analysis=False):
         image = input
         roi_info = self.get_roi(image)
-        box = roi_info[1].reshape(4,2)
-        left = min(box[:][0])
-        right = max(box[:][0])
-        top = min(box[:][1])
-        bottom = max(box[:][1])
+        box = None
+        if roi_info[1] is not None:
+            box = roi_info[1].reshape(4,2)
+        # filtered = self.gray_processing(image)
+        # filtered = cv2.fastNlMeansDenoising(filtered, None, 10, 7, 21)
+        # filtered = self.gaussian_smoothing(filtered)
+        roi = None
+        if box is not None:
+            left = min(box[:][0])
+            right = max(box[:][0])
+            top = min(box[:][1])
+            bottom = max(box[:][1])
 
-        points = [(left, top), (right, bottom)]
+            points = [(left, top), (right, bottom)]
 
-        roi = self.four_point_transform(image, roi_info[1].reshape(4, 2))
-        if show_detection:
-            cv2.drawContours(input,
-                    [roi_info[1].reshape(4, 2)],
-                               -1, (0.255, 255),
-                               2)
+            roi = self.four_point_transform(image, roi_info[1].reshape(4, 2))
+            if show_detection:
+                cv2.drawContours(input,
+                        [roi_info[1].reshape(4, 2)],
+                                   -1, (0.255, 255),
+                                   2)
         # image = roi
 
         gray = self.gray_processing(image)
@@ -187,6 +257,16 @@ class DottedDataMatrix:
         else:
             print("Data Matrix not decoded.")
         if show_analysis:
+            # gray = self.four_point_transform(gray, roi_info[1].reshape(4, 2))
+            # gauss = self.four_point_transform(gauss, roi_info[1].reshape(4, 2))
+            # thresholded = self.four_point_transform(thresholded, roi_info[1].reshape(4, 2))
+            # log_image = self.four_point_transform(log_image, roi_info[1].reshape(4, 2))
+            # mean = self.four_point_transform(mean, roi_info[1].reshape(4, 2))
+            # binary = self.four_point_transform(binary, roi_info[1].reshape(4, 2))
+            if roi_info[1] is not None:
+                morph = self.four_point_transform(morph, roi_info[1].reshape(4, 2))
+
+
             self.show_pipeline(input, gray, gauss,
                                thresholded, log_image, mean,
                                binary, morph, roi)
@@ -216,6 +296,8 @@ class DottedDataMatrix:
             #     plt.xticks([]), plt.yticks([])
             #     plt.xlim([0, 256])
             # else:
+            if images[i] is None:
+                continue
             plt.subplot(math.ceil(img_num / 3), 3, i + 1), plt.imshow(images[i], 'gray')
             plt.title(titles[i])
             plt.xticks([]), plt.yticks([])
@@ -332,5 +414,3 @@ class DottedDataMatrix:
         warped = cv2.warpPerspective(image, M, (maxWidth, maxHeight))
 
         return warped
-
-
