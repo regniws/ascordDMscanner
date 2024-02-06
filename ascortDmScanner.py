@@ -37,7 +37,7 @@ def renderPlain(image):
 
     image = cv2.putText(
         image,
-        'Нажмите любую клавишу для завершения',
+        'press any key',
         (30, 450),
         cv2.FONT_HERSHEY_COMPLEX,
         0.5,
@@ -103,24 +103,24 @@ def proccessDMCode(image):
 #main
 
 parser=argparse.ArgumentParser(
-    prog ='Аскорт:Сканнер ДМ кодов. Версия ' + str(version),
-    description ='Программа для распознавания ДМ кодов с ювелирных изделий с помощью USB-микроскопа',
-    epilog = '''Примеры использования: \n
-    ascortDmScanner // открыть программу с параметрами по умолчанию и показывать на экране режим сканирования \n
-    ascortDmScanner --camID=1 --clipboard=True // Использовать камеру с номером 1 и скопировать в буфер обмена, как только будет найден УИН \n
-    ascortDmScanner --readFromFile='qr.jpg' --resultFile='result.txt'  // прочитать файл и сохранить УИН в файл result.txt'''
+    prog ='Ascort:DM scanner ' + str(version),
+    description ='datamatrix codes scanners with USB-cameras',
+    epilog = '''Usages examples: \n
+    ascortDmScanner // open the program \n
+    ascortDmScanner --camID=1 --clipboard=True // open and scan with camerID = 1 \n
+    ascortDmScanner --readFromFile='qr.jpg' --resultFile='result.txt'  // open file with image and save result to  result.txt'''
 )
 
 parser.add_argument(
     "--resultFile", "-r",
-    help="Файл результата. Если не передаваь, сохранение не будет произведено",
+    help="file with result",
     type = str,
     default = ''
 )
 
 parser.add_argument(
     "--camID", "-c",
-    help="Идентификатор usb микроскопа или камеры",
+    help="USB camera ID",
     dest="camID",
     type = int,
     default = 0
@@ -128,21 +128,21 @@ parser.add_argument(
 
 parser.add_argument(
     "--accuracy",
-    "-a", help="Точность чтения в миллисекундах",
+    "-a", help="accuracy in milliseconds",
     type = int,
     default = 70
 )
 
 parser.add_argument(
     "--clipboard", "-C",
-    help="Записать результат в буфер обмена",
+    help="copy resul to clipboard",
     type = bool,
     default = False
 )
 
 parser.add_argument(
     "--readFromFile", "-f",
-    help="Имя файла для чтения и распознавания, в случае установки данного параметра, подключение камеры не производится",
+    help="the image file to read",
     type = str,
     default = ''
 )
@@ -165,7 +165,7 @@ while True:
     else:
         rez, image = cap.read()
         if not rez:
-            print('не удалось подключить веб-камеру')
+            print('can\'t attach to camera')
             sys.exit(-1)
 
     # Если требуется прочитал 
