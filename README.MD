@@ -11,7 +11,7 @@ use is subject to the preservation of authorship.
 
 Usage examples:  
 ascortDmScanner // open the program with default parameters and show the scan mode on the screen  
-ascortDmScanner --com ID=1 --clipboard=True // Use camera number 1 and copy to clipboard as soon as UIN is found  
+ascortDmScanner --camID=1 --clipboard=True // Use camera number 1 and copy to clipboard as soon as UIN is found  
 ascortDmScanner --readFromFile='qr.jpg' --resultFile='result.txt ' // read the file and save the WIN to a file result.txt "'  
 
 Myagkov Anton @ wow1c.com
