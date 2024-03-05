@@ -195,7 +195,7 @@ while True:
         elif copyToClipboard:
             pyperclip.copy(UIN)
             break
-    # break
+    break
 
     k = cv2.waitKey(33)
     if k == -1:

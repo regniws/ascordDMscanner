@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import cv2
 import math
+import copy
+
 from pylibdmtx.pylibdmtx import decode
 
 class DottedDataMatrix:
@@ -116,6 +118,7 @@ class DottedDataMatrix:
         data_matrix_coords = None
         warped = None
         for contour in filtered_contours:
+            contour = np.int0(np.array([(340,130), (330,213), (422,220), (433,140)]))
             ind = ind + 1
             # Perform perspective transformation
             rect = cv2.minAreaRect(contour)
@@ -124,8 +127,8 @@ class DottedDataMatrix:
 
             warped = self.four_point_transform(image, box)
             data_matrix_coords = box
-            # tt1 = cv2.drawContours(image, [box], -1, (0.255, 255), 2)
-            # cv2.imshow('Tested' + str(ind), warped)
+            tt1 = cv2.drawContours(image, [box], -1, (0.255, 255), 2)
+            cv2.imshow('Tested' + str(ind), warped)
 
             # Approximate the contour to a polygon
             epsilon = 0.04 * cv2.arcLength(contour, True)
@@ -145,16 +148,51 @@ class DottedDataMatrix:
             warped = self.four_point_transform(image, data_matrix_coords.reshape(4, 2))
 
         return [warped, data_matrix_coords]
+    
+    images = []
+    titles = []
+    
+    def pushImage(self, image, title):
+        self.images.append(copy.deepcopy(image))
+        self.titles.append(title)
+    
+    def drawPipeLine(self):
+        rows = (math.floor(len(self.images) / 3)) + (0 if len(self.images) % 3 == 0 else 1)
+        fig, axes = plt.subplots(max(2,rows), 3)
 
+        for row in range(0, max(rows, 2)):
+            for column in [0, 1, 2]:
+                ax = axes[row, column]
+                
+                ax.axis('off')
+                if row * 3 + column < len(self.images):
+                    decoded_info = decode(self.images[row*3 + column], 70, shape=2)
+                    if decoded_info:
+                        data_matrix_text = decoded_info[0].data.decode('utf-8')
+                        print("Decoded Data Matrix:", data_matrix_text) 
+                    
+                    ax.imshow(self.images[row*3 + column])
+                    ax.set_title(self.titles[row*3 + column])
+        plt.show()
+    
     def detect_datamatrix(self, input, show_detection=False, show_analysis=False):
+        
+
+        
+        
+        
+        
+        
+        
+        self.pushImage(input, 'input source')
         image = input
         roi_info = self.get_roi(image)
+        
         box = None
         if roi_info[1] is not None:
             box = roi_info[1].reshape(4,2)
-        # filtered = self.gray_processing(image)
-        # filtered = cv2.fastNlMeansDenoising(filtered, None, 10, 7, 21)
-        # filtered = self.gaussian_smoothing(filtered)
+        
+          
         roi = None
         if box is not None:
             left = min(box[:][0])
@@ -170,44 +208,112 @@ class DottedDataMatrix:
                         [roi_info[1].reshape(4, 2)],
                                    -1, (0.255, 255),
                                    2)
-        # image = roi
+        image = roi
+        
+        
+        
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        self.pushImage(gray, 'gray')
+        
+        thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+        self.pushImage(thresh, 'thresh')
+        thresh = self.morphology(thresh)
+        self.pushImage(thresh, 'morphology')
+        
+        # Filter out large non-connecting objects
+        cnts = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+        for c in cnts:
+            area = cv2.contourArea(c)
+            if area < 500:
+                cv2.drawContours(thresh,[c],0,0,-1)
+        self.pushImage(thresh, 'drawContours')
+        
+        # Morph open using elliptical shaped kernel
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2,2))
+        self.pushImage(kernel, 'kernel')
+        opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=3)
+        self.pushImage(opening, 'opening')
 
+        # Find circles 
+        cnts = cv2.findContours(opening, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+        for c in cnts:
+            area = cv2.contourArea(c)
+            if area > 20 and area < 50:
+                ((x, y), r) = cv2.minEnclosingCircle(c)
+                cv2.circle(image, (int(x), int(y)), int(r), (36, 255, 12), 2)
+        self.pushImage(image, 'circle')
+        self.drawPipeLine()
+        
+        cv2.imshow('thresh', thresh)
+        cv2.imshow('opening', opening)
+        cv2.imshow('image', image)
+        cv2.waitKey()
+        
+        
+                
+        self.pushImage(image, 'roi')
+        
         gray = self.gray_processing(image)
+        self.pushImage(gray, 'gray')
 
-        # thresh = cv2.adaptiveThreshold(gray, 255.0, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 15, 2)
-        # gray = thresh
+        thresh = cv2.adaptiveThreshold(gray, 255.0, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 15, 2)
+        self.pushImage(thresh, 'thresh')
+        
+        gray = thresh
         gray = cv2.fastNlMeansDenoising(gray, None, 10, 7, 21)
+        self.pushImage(gray, 'fastNlMeansDenoising')
+        
 
         gauss = self.gaussian_smoothing(gray)
+        self.pushImage(gauss, 'gauss')
 
         mean = self.dynamic_mean_filter(gray)
+        self.pushImage(mean, 'mean')
 
         T = self.kittler_threshold(gauss)
         _,thresholded = cv2.threshold(gauss, T, 255, cv2.THRESH_BINARY)
 
         log_image = cv2.Laplacian(thresholded, cv2.CV_32F, ksize=3)
+        self.pushImage(log_image, 'log_image')
+        
         cv2.normalize(log_image, log_image, 1, 0, cv2.NORM_MINMAX);
+        self.pushImage(log_image, 'log_image')
         log_image = cv2.convertScaleAbs(log_image)
+        self.pushImage(log_image, 'log_image')
         # # Create the sharpening kernel
         kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
         # Sharpen the image
         log_image = cv2.filter2D(log_image, -1, kernel)
+        self.pushImage(log_image, 'log_image')
 
 
         binary = self.bernsen_threshold(mean, 3, 45)
+        self.pushImage(binary, 'binary')
         morph = self.morphology(binary)
-
-
+        self.pushImage(morph, 'morph')
+       
         morph = cv2.adaptiveThreshold(morph, 255.0, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 15, 2)
-
+        self.pushImage(morph, 'morph')
+        
         warped = None
         edges = cv2.Canny(gauss, 50, 250)
+        self.pushImage(edges, 'edges')
+        
         contours, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-
+        
+        
+        
+        
         # contours, _ = cv2.findContours(morph, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         # filtered_contours = contours
         filtered_contours = [contour for contour in contours if cv2.contourArea(contour) > 10]
-
+        
+        cv2.drawContours(edges, filtered_contours, -1, (255, 0, 0), 1) 
+        self.pushImage(edges, 'filtered_contours')
+        self.drawPipeLine()
+        
         # Loop through filtered contours and perform perspective transformation and decoding
         ind = 0
         data_matrix_coords = None
@@ -242,11 +348,11 @@ class DottedDataMatrix:
         output = warped
         # output = self.dott_detection(th["threshold"], image)
         # output = self.dott_detection(edges, image)
-
+        
         # roi = self.get_roi(image)
         # roi = self.four_point_transform(binary, roi[1].reshape(4, 2))
-
-
+        
+        
         decoded_info = decode(gauss, 70, shape=2)
         print("Decoded data")
         data_matrix_text = None
@@ -267,11 +373,11 @@ class DottedDataMatrix:
                 morph = self.four_point_transform(morph, roi_info[1].reshape(4, 2))
 
 
-            self.show_pipeline(input, gray, gauss,
-                               thresholded, log_image, mean,
-                               binary, morph, roi)
+        #   self.show_pipeline(input, gray, gauss,
+        #                      thresholded, log_image, mean,
+        #                       binary, morph, roi)
         return [points, data_matrix_text]
-
+    
     def show_pipeline(self,
                       input, gray, gauss,
                       thresholded, log_image, mean,
@@ -378,9 +484,12 @@ class DottedDataMatrix:
         return binary
 
     def morphology(self, binary):
-        element = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+        element = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
         open = cv2.morphologyEx(binary, cv2.MORPH_OPEN, element, iterations=1)
+        self.pushImage(open, "open")
+        element = cv2.getStructuringElement(cv2.MORPH_RECT, (4, 4))
         closed = cv2.morphologyEx(open, cv2.MORPH_CLOSE, element, iterations=1)
+        self.pushImage(closed, "closed")
 
         return closed
 
