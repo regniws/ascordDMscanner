@@ -257,8 +257,7 @@ debug = args.debug
 aimSize = args.aimSize
 rectWork = args.rect
 
-if readFromFile != '':
-    cap = cv2.VideoCapture(camID)
+cap = cv2.VideoCapture(camID)
 
 #event loop
 

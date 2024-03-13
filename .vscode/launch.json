@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "args":["--readFromFile=c:\\t\\rect.png"],
+            "args":[""],
             "justMyCode": false
         }
     ]
