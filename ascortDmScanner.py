@@ -21,7 +21,7 @@ import sys
 
 #constans
 windowName = "Ascort:DM scanner"
-version = 1
+version = 2
 
 def renderPlain(image):
 
@@ -37,7 +37,7 @@ def renderPlain(image):
 
     image = cv2.putText(
         image,
-        'press any key',
+        'для завершения нажмите любую кнопку',
         (30, 450),
         cv2.FONT_HERSHEY_COMPLEX,
         0.5,
@@ -53,50 +53,128 @@ def renderPlain(image):
         0.5,
         (255, 55, 108),
         1
-    )    
-
-def renderWithUIN(image, plain, points, UIN):
-
-    # рамка датаматрикса, для повёрнутых кодов pylibdmtx даёт некорректную ширину
-    image = cv2.rectangle(
-        image, 
-        points[0],
-        points[1],
-        (132,255,56),
-        5
     )
+
+def renderWithUIN(image, UIN):
+    
+    overlay = image.copy() 
+    
+    # рамка датаматрикса, для повёрнутых кодов pylibdmtx даёт некорректную ширину
+    if rectWork:
+        cv2.rectangle(
+            overlay, 
+            (int(image.shape[1] / 2  - aimSize), int(image.shape[0] / 2  - aimSize / 4)),
+            (int(image.shape[1] / 2  + aimSize), int(image.shape[0] / 2  + aimSize / 4)),
+            (135,255,169),
+            -1
+        )
+    else:
+       cv2.rectangle(
+            overlay, 
+            (int(image.shape[1] / 2  - aimSize / 2), int(image.shape[0] / 2  - aimSize / 2)),
+            (int(image.shape[1] / 2  + aimSize / 2), int(image.shape[0] / 2  + aimSize / 2)),
+            (135,255,169),
+            -1
+       )
+    
+    image = cv2.addWeighted(overlay, 0.3, image, 0.7, 0)
     
     # определённый уин
     image = cv2.putText(
         image,
         UIN,
         (30, 30),
-        cv2.FONT_HERSHEY_COMPLEX,
+        cv2.FONT_HERSHEY_SCRIPT_SIMPLEX,
         1,
         (132,255,56),
         2
     )
+    
+    return image
 
 def render(plain, image, points, UIN):
     if plain:
         renderPlain(image)
     else:
-        renderWithUIN(image, plain, points, UIN)
+        image = renderWithUIN(image, UIN)
+        
+    if rectWork:
+       image = cv2.rectangle(
+            image, 
+            (int(image.shape[1] / 2  - aimSize), int(image.shape[0] / 2  - aimSize / 4)),
+            (int(image.shape[1] / 2  + aimSize), int(image.shape[0] / 2  + aimSize / 4)),
+            (135,255,169),
+            3
+       )
+    else:
+        image = cv2.rectangle(
+            image, 
+            (int(image.shape[1] / 2  - aimSize / 2), int(image.shape[0] / 2  - aimSize / 2)),
+            (int(image.shape[1] / 2  + aimSize / 2), int(image.shape[0] / 2  + aimSize / 2)),
+            (135,255,169),
+            3
+    )
     cv2.imshow(windowName, image)
     
+def morphology(binary):
+    rez = []
+    
+    for i in [2,3]:
+        for j in [2,3]:
+            element = cv2.getStructuringElement(cv2.MORPH_RECT, (i, i))
+            open = cv2.morphologyEx(binary, cv2.MORPH_OPEN, element, iterations=1)
+            element = cv2.getStructuringElement(cv2.MORPH_RECT, (j, j))
+            closed = cv2.morphologyEx(open, cv2.MORPH_CLOSE, element, iterations=1)
+            rez.append(closed)
+    return rez
+
+def prepareImage(image):
+        
+    imagesForDebug = []
+    if rectWork:
+        cropAim = image[int(image.shape[0] / 2  - aimSize / 3.5): int(image.shape[0] / 2  + aimSize / 3.5), int(image.shape[1] / 2  - aimSize ): int(image.shape[1] / 2  + aimSize )]
+    else:
+        cropAim = image[ int(image.shape[0] / 2  - aimSize / 2): int(image.shape[0] / 2  + aimSize / 2), int(image.shape[1] / 2  - aimSize / 2): int(image.shape[1] / 2  + aimSize / 2)]
+    
+    imagesForDebug.append(cropAim)
+    gray = cv2.cvtColor(cropAim, cv2.COLOR_BGR2GRAY)
+    imagesForDebug.append(gray)
+    
+    blur = cv2.GaussianBlur(gray,(5,5),0)
+    imagesForDebug.append(blur)
+    
+    thresh = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 21, 10)
+    imagesForDebug.append(thresh)
+    morph = morphology(thresh)
+    
+    for t in morph:
+        imagesForDebug.append(t)
+    
+    if debug:
+        cnt = 0
+        for i in imagesForDebug:
+            cv2.imshow('debug '+ str(cnt), i)
+            cnt = cnt + 1
+    return morph
 
 def proccessDMCode(image):
-
-    data = decode(image, accuracy, shape=2)
-
-    for decodedObject in data:
-
-        points = [
-            (decodedObject.rect.left,  image.shape[0] - decodedObject.rect.top), 
-            (decodedObject.rect.left + decodedObject.rect.width,  image.shape[0] - decodedObject.rect.top - decodedObject.rect.height)
-        ]
-        print(decodedObject.data.decode("utf-8"))
-        return (True,  points, decodedObject.data.decode("utf-8"))
+    
+    imagesForScan = prepareImage(image)
+    
+    for image in imagesForScan:
+        if rectWork:
+            data = decode(image, accuracy)
+        else:
+            data = decode(image, accuracy, shape=2)
+        
+        for decodedObject in data:
+            
+            points = [
+                (decodedObject.rect.left,  image.shape[0] - decodedObject.rect.top), 
+                (decodedObject.rect.left + decodedObject.rect.width,  image.shape[0] - decodedObject.rect.top - decodedObject.rect.height)
+            ]
+            print(decodedObject.data.decode("utf-8"))
+            return (True,  points, decodedObject.data.decode("utf-8"))
     
     return (False, None, None)
        
@@ -147,6 +225,27 @@ parser.add_argument(
     default = ''
 )
 
+parser.add_argument(
+    "--aimSize", "-as",
+    help="the aim box size in pixelx",
+    type = int,
+    default = 140
+)
+
+parser.add_argument(
+    "--debug", "-d",
+    help="show debugging view",
+    type = bool,
+    default = False
+)
+
+parser.add_argument(
+    "--rect", "-rt",
+    help="scan for rects",
+    type = bool,
+    default = False
+)
+
 args = parser.parse_args()
 
 resultFile = args.resultFile
@@ -154,8 +253,12 @@ camID = args.camID
 accuracy = args.accuracy
 copyToClipboard = args.clipboard
 readFromFile = args.readFromFile
+debug = args.debug
+aimSize = args.aimSize
+rectWork = args.rect
 
-cap = cv2.VideoCapture(camID)
+if readFromFile != '':
+    cap = cv2.VideoCapture(camID)
 
 #event loop
 
@@ -183,8 +286,7 @@ while True:
                 break
         elif copyToClipboard:
             pyperclip.copy(UIN)
-            break
-
+    
     k = cv2.waitKey(33)
     if k == -1:
         continue

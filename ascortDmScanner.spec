@@ -4,7 +4,7 @@
 a = Analysis(
     ['ascortDmScanner.py'],
     pathex=[],
-    binaries=[('./libdmtx-32.dll', '.')],
+    binaries=[('./libdmtx-64.dll', '.')],
     datas=[],
     hiddenimports=[],
     hookspath=[],
