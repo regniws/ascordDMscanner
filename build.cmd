@@ -1,1 +1,1 @@
-C:\Users\anton\AppData\Local\Programs\Python\Python312-32\Scripts\pyinstaller.exe .\ascortDmScanner.py -F  --add-binary "./libdmtx-64.dll;." --onefile --icon=icon.ico
+C:\Users\anton\AppData\Local\Programs\Python\Python312-32\Scripts\pyinstaller.exe .\ascortDmScanner.py -F  --add-binary "./libdmtx-32.dll;." --onefile --icon=icon.ico
